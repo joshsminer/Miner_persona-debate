@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Debate</title>
+  <script src="config.js"></script>
+  <script src="config-keys.js"></script>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+      --radius: 8px;
+      --radius-lg: 12px;
+      --persona-1: #6366f1;
+      --persona-2: #0ea5e9;
+      --persona-3: #10b981;
+      --persona-4: #f59e0b;
+      --persona-5: #8b5cf6;
+      --status-ready: #64748b;
+      --status-loading: #0ea5e9;
+      --status-error: #ef4444;
+      --status-success: #22c55e;
+      --sidebar-width: 280px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes bubbleIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .app-header {
+      background: var(--surface);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow);
+      border-bottom: 1px solid var(--border);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .app-header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .app-header .subtitle {
+      margin: 0.25rem 0 0;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .layout {
+      display: flex;
+      min-height: calc(100vh - 72px);
+    }
+
+    .history-sidebar {
+      position: relative;
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, margin 0.2s ease;
+    }
+
+    .history-sidebar.collapsed {
+      margin-left: calc(-1 * var(--sidebar-width));
+    }
+
+    .history-sidebar.collapsed .history-expand-tab {
+      display: flex;
+    }
+
+    .history-expand-tab {
+      display: none;
+      position: absolute;
+      right: -32px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 64px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: none;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      box-shadow: var(--shadow);
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      letter-spacing: 0.05em;
+    }
+
+    .history-expand-tab:hover {
+      background: var(--bg);
+      color: var(--primary);
+    }
+
+    .history-expand-tab {
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .history-sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .history-sidebar-header:hover {
+      background: var(--border);
+    }
+
+    .history-sidebar-header h2 {
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .history-sidebar-toggle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+    }
+
+    .history-sidebar.collapsed .history-sidebar-toggle {
+      transform: rotate(180deg);
+    }
+
+    .history-content {
+      padding: 0.75rem;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+    }
+
+    .history-placeholder {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .history-item {
+      display: block;
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+      text-align: left;
+      font-size: 0.8125rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .history-item:hover {
+      background: #eef2ff;
+      border-color: var(--primary-light);
+      box-shadow: 0 1px 3px rgba(99, 102, 241, 0.12);
+    }
+
+    .history-item-new::after {
+      content: 'New';
+      position: absolute;
+      top: 0.35rem;
+      right: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--primary);
+      background: rgba(99, 102, 241, 0.12);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+
+    .history-item-title {
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-item-date {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .history-clear-btn {
+      display: block;
+      width: calc(100% - 1rem);
+      margin: 0.5rem 0.5rem 0.75rem;
+      padding: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .history-clear-btn:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      overflow: auto;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        flex-direction: column;
+      }
+    }
+
+    .column {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .input-section .card,
+    .output-section .card {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-section .card-body,
+    .output-section .card-body {
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    textarea:disabled,
+    input:disabled {
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .product-idea-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    #productIdea {
+      max-height: 280px;
+      resize: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .personas-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .persona-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      border-left: 4px solid var(--persona-color, var(--primary));
+      padding: 0.75rem 1rem;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .persona-card:hover {
+      box-shadow: var(--shadow);
+    }
+
+    .persona-card.persona-1 { --persona-color: var(--persona-1); }
+    .persona-card.persona-2 { --persona-color: var(--persona-2); }
+    .persona-card.persona-3 { --persona-color: var(--persona-3); }
+    .persona-card.persona-4 { --persona-color: var(--persona-4); }
+    .persona-card.persona-5 { --persona-color: var(--persona-5); }
+
+    .persona-card input {
+      width: 100%;
+      padding: 0.5rem 0;
+      border: none;
+      border-bottom: 1px solid transparent;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+      background: transparent;
+      margin-bottom: 0.5rem;
+      transition: border-color 0.15s ease;
+    }
+
+    .persona-card input:focus {
+      outline: none;
+      border-bottom-color: var(--persona-color, var(--primary));
+    }
+
+    .persona-card input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .persona-card .perspective-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .persona-card textarea {
+      min-height: 60px;
+      margin: 0;
+    }
+
+    #generateBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+    }
+
+    #generateBtn:hover:not(:disabled) {
+      background: var(--primary-dark);
+    }
+
+    #generateBtn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    #generateBtn:disabled {
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
+    #generateBtn .btn-spinner {
+      display: none;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    #generateBtn.loading .btn-spinner {
+      display: inline-block;
+    }
+
+    #generateBtn .btn-text {
+      transition: opacity 0.2s ease;
+    }
+
+    .status-area {
+      display: flex;
+      flex-direction: column;
+      padding: 0.5rem 0;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 1.5rem;
+    }
+
+    .status-spinner {
+      display: none;
+      width: 0.875rem;
+      height: 0.875rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--status-loading);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .status-row.loading .status-spinner {
+      display: block;
+    }
+
+    .status-row.loading #status {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    #status {
+      font-size: 0.8125rem;
+      color: var(--status-ready);
+    }
+
+    #status.ready { color: var(--status-ready); }
+    #status.loading { color: var(--status-loading); }
+    #status.error { color: var(--status-error); }
+    #status.success { color: var(--status-success); }
+
+    .product-idea-char-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+      margin-bottom: 0;
+    }
+
+    .product-idea-char-count.over-limit {
+      color: var(--status-error);
+      font-weight: 500;
+    }
+
+    .status-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .retry-btn {
+      display: none;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary);
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid var(--primary-light);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .retry-btn.visible {
+      display: inline-block;
+    }
+
+    .retry-btn:hover {
+      background: rgba(99, 102, 241, 0.2);
+    }
+
+    .status-details-toggle {
+      font-size: 0.75rem;
+      color: var(--primary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.2rem 0;
+      text-decoration: underline;
+      margin-left: 0.25rem;
+    }
+
+    .status-details-toggle:hover {
+      color: var(--primary-dark);
+    }
+
+    .status-details {
+      display: none;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      font-size: 0.7rem;
+      font-family: monospace;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-height: 120px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text-muted);
+    }
+
+    .status-details.visible {
+      display: block;
+    }
+
+    .reset-app-btn {
+      display: block;
+      width: calc(100% - 1rem);
+      margin: 0.25rem 0.5rem 0.75rem;
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--status-error);
+      background: transparent;
+      border: 1px solid var(--status-error);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .reset-app-btn:hover {
+      background: rgba(239, 68, 68, 0.08);
+      color: var(--status-error);
+    }
+
+    .output-section .card-body {
+      gap: 1rem;
+    }
+
+    #conversation {
+      flex: 1;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 0.25rem 0;
+    }
+
+    .bubble {
+      max-width: 90%;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      border-left: 4px solid;
+      background: var(--bg);
+      font-size: 0.875rem;
+      animation: bubbleIn 0.35s ease forwards;
+    }
+
+    .bubble:nth-child(1) { animation-delay: 0.02s; }
+    .bubble:nth-child(2) { animation-delay: 0.06s; }
+    .bubble:nth-child(3) { animation-delay: 0.1s; }
+    .bubble:nth-child(4) { animation-delay: 0.14s; }
+    .bubble:nth-child(5) { animation-delay: 0.18s; }
+    .bubble:nth-child(6) { animation-delay: 0.22s; }
+    .bubble:nth-child(7) { animation-delay: 0.26s; }
+    .bubble:nth-child(8) { animation-delay: 0.3s; }
+    .bubble:nth-child(9) { animation-delay: 0.34s; }
+    .bubble:nth-child(10) { animation-delay: 0.38s; }
+    .bubble:nth-child(n+11) { animation-delay: 0.42s; }
+
+    .bubble .bubble-name {
+      font-weight: 600;
+      font-size: 0.8125rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .bubble.persona-1 { border-left-color: var(--persona-1); }
+    .bubble.persona-2 { border-left-color: var(--persona-2); }
+    .bubble.persona-3 { border-left-color: var(--persona-3); }
+    .bubble.persona-4 { border-left-color: var(--persona-4); }
+    .bubble.persona-5 { border-left-color: var(--persona-5); }
+
+    #summary {
+      min-height: 80px;
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      color: var(--text);
+    }
+
+    .summary-heading {
+      font-weight: 600;
+      font-size: 0.8125rem;
+      color: var(--primary);
+      margin: 0.75rem 0 0.25rem;
+    }
+
+    .summary-heading:first-child {
+      margin-top: 0;
+    }
+
+    .summary-list {
+      margin: 0 0 0.5rem;
+      padding-left: 1.25rem;
+      color: var(--text);
+    }
+
+    .summary-list li {
+      margin-bottom: 0.25rem;
+    }
+
+    .bubble .bubble-message {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      padding: 1.5rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Persona Debate</h1>
+    <p class="subtitle">Stress-test your product ideas</p>
+  </header>
+
+  <div class="layout">
+    <aside id="history" class="history-sidebar">
+      <div class="history-sidebar-header" id="historyToggle">
+        <h2>Saved debates</h2>
+        <span class="history-sidebar-toggle" aria-hidden="true">‹</span>
+      </div>
+      <div class="history-content" id="historyList">
+        <div class="history-placeholder">No saved debates yet.</div>
+      </div>
+      <button type="button" id="clearHistoryBtn" class="history-clear-btn">Clear History</button>
+      <button type="button" id="resetAppBtn" class="reset-app-btn">Reset App</button>
+      <div class="history-expand-tab" id="historyExpandTab" title="Show history">History</div>
+    </aside>
+
+    <main>
+      <section class="column input-section">
+        <div class="card">
+          <div class="card-header">Input</div>
+          <div class="card-body">
+            <div>
+              <div class="product-idea-label">Product idea</div>
+              <textarea id="productIdea" placeholder="Describe your product idea..." rows="3"></textarea>
+              <p class="product-idea-char-count" id="productIdeaCharCount">0 characters</p>
+            </div>
+
+            <div class="personas-container">
+              <div class="persona-card persona-1">
+                <input type="text" class="persona-name" placeholder="Persona name" value="Skeptical Engineer">
+                <div class="perspective-label">Perspective</div>
+                <textarea class="persona-perspective" placeholder="Their viewpoint..."></textarea>
+              </div>
+              <div class="persona-card persona-2">
+                <input type="text" class="persona-name" placeholder="Persona name" value="Budget-Conscious Buyer">
+                <div class="perspective-label">Perspective</div>
+                <textarea class="persona-perspective" placeholder="Their viewpoint..."></textarea>
+              </div>
+              <div class="persona-card persona-3">
+                <input type="text" class="persona-name" placeholder="Persona name" value="Power User">
+                <div class="perspective-label">Perspective</div>
+                <textarea class="persona-perspective" placeholder="Their viewpoint..."></textarea>
+              </div>
+              <div class="persona-card persona-4">
+                <input type="text" class="persona-name" placeholder="Persona name" value="First-Time User">
+                <div class="perspective-label">Perspective</div>
+                <textarea class="persona-perspective" placeholder="Their viewpoint..."></textarea>
+              </div>
+              <div class="persona-card persona-5">
+                <input type="text" class="persona-name" placeholder="Persona name" value="Executive Sponsor">
+                <div class="perspective-label">Perspective</div>
+                <textarea class="persona-perspective" placeholder="Their viewpoint..."></textarea>
+              </div>
+            </div>
+
+            <button type="button" id="generateBtn">
+              <span class="btn-spinner" id="btnSpinner" aria-hidden="true"></span>
+              <span class="btn-text" id="generateBtnText">Generate Debate</span>
+            </button>
+            <div class="status-area">
+              <div class="status-row" id="statusRow">
+                <span class="status-spinner" id="statusSpinner" aria-hidden="true"></span>
+                <div class="status-actions">
+                  <span id="status">Ready</span>
+                  <button type="button" id="retryBtn" class="retry-btn" title="Try again">Retry</button>
+                </div>
+              </div>
+              <div id="statusDetails" class="status-details" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="column output-section">
+        <div class="card">
+          <div class="card-header">Conversation</div>
+          <div class="card-body">
+            <div id="conversation">
+              <div class="empty-state">Run a debate to see persona responses here.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Summary</div>
+          <div class="card-body">
+            <div id="summary">
+              <div class="empty-state">Summary will appear here after a debate.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    var BUBBLE_COLORS = ['persona-1', 'persona-2', 'persona-3', 'persona-4', 'persona-5'];
+
+    function updateStatus(message, type) {
+      var el = document.getElementById('status');
+      if (!el) return;
+      el.textContent = message;
+      el.className = type || 'ready';
+    }
+
+    function setLoading(isLoading) {
+      var statusRow = document.getElementById('statusRow');
+      var btn = document.getElementById('generateBtn');
+      var btnText = document.getElementById('generateBtnText');
+      if (statusRow) statusRow.classList.toggle('loading', isLoading);
+      if (btn) {
+        btn.disabled = isLoading;
+        btn.classList.toggle('loading', isLoading);
+      }
+      if (btnText) btnText.textContent = isLoading ? 'Generating...' : 'Generate Debate';
+      var inputs = document.querySelectorAll('#productIdea, .persona-name, .persona-perspective');
+      inputs.forEach(function (el) { el.disabled = isLoading; });
+      if (isLoading) updateStatus('Generating debate...', 'loading');
+    }
+
+    function getFormData() {
+      var productIdea = document.getElementById('productIdea').value.trim();
+      var nameInputs = document.querySelectorAll('.persona-name');
+      var perspectiveInputs = document.querySelectorAll('.persona-perspective');
+      var names = Array.prototype.map.call(nameInputs, function (el) { return el.value.trim(); });
+      var perspectives = Array.prototype.map.call(perspectiveInputs, function (el) { return el.value.trim(); });
+      return { productIdea: productIdea, names: names, perspectives: perspectives };
+    }
+
+    function buildDebatePrompt(productIdea, names, perspectives) {
+      var personaLines = names.map(function (name, i) {
+        var p = perspectives[i] ? ' Perspective: ' + perspectives[i] : '';
+        return '- ' + name + p;
+      }).join('\n');
+      return 'Generate a realistic 8-10 message debate among these 5 personas about the following product idea. ' +
+        'Each persona should argue from their defined perspective. Include genuine disagreements, pushback, and different viewpoints. ' +
+        'End with a synthesis of key tensions, strongest objections, and potential insights.\n\n' +
+        'Product idea:\n' + productIdea + '\n\n' +
+        'Personas:\n' + personaLines + '\n\n' +
+        'Return valid JSON only, no other text, with this exact structure: ' +
+        '{"messages":[{"persona":"string","message":"string"}],"summary":{"tensions":["string"],"objections":["string"],"insights":["string"]}}';
+    }
+
+    function parseJsonFromText(text) {
+      if (typeof text !== 'string' || !text.trim()) return null;
+      var raw = text.trim();
+      var match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (match) raw = match[1].trim();
+      var start = raw.indexOf('{');
+      if (start === -1) return null;
+      var depth = 0;
+      var end = -1;
+      for (var i = start; i < raw.length; i++) {
+        if (raw[i] === '{') depth++;
+        else if (raw[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+      }
+      if (end === -1) return null;
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function extractDebateData(body) {
+      if (body && body.messages && body.summary) return body;
+      var content = null;
+      if (body.choices && body.choices[0] && body.choices[0].message) {
+        content = body.choices[0].message.content;
+      } else if (body.output && Array.isArray(body.output) && body.output[0] && body.output[0].content && body.output[0].content[0]) {
+        content = body.output[0].content[0].text;
+      }
+      if (content != null) {
+        var parsed = parseJsonFromText(typeof content === 'string' ? content : String(content));
+        if (parsed && (parsed.messages || parsed.summary)) return parsed;
+        try {
+          var direct = JSON.parse(typeof content === 'string' ? content.trim() : content);
+          if (direct && (direct.messages || direct.summary)) return direct;
+        } catch (e) { }
+      }
+      return body;
+    }
+
+    function displayDebate(data, personaNames) {
+      var conversation = document.getElementById('conversation');
+      var summaryEl = document.getElementById('summary');
+      conversation.innerHTML = '';
+      summaryEl.innerHTML = '';
+
+      var nameToIndex = {};
+      personaNames.forEach(function (name, i) {
+        nameToIndex[name] = i;
+      });
+
+      var messages = Array.isArray(data.messages) ? data.messages : [];
+      messages.forEach(function (msg) {
+        var persona = msg && (msg.persona != null) ? String(msg.persona) : 'Unknown';
+        var message = msg && (msg.message != null) ? String(msg.message) : '';
+        var idx = nameToIndex[persona];
+        if (idx === undefined) idx = 0;
+        var colorClass = BUBBLE_COLORS[idx] || 'persona-1';
+        var bubble = document.createElement('div');
+        bubble.className = 'bubble ' + colorClass;
+        bubble.innerHTML = '<div class="bubble-name">' + escapeHtml(persona) + '</div><div class="bubble-message">' + escapeHtml(message) + '</div>';
+        conversation.appendChild(bubble);
+      });
+
+      var summary = data.summary && typeof data.summary === 'object' ? data.summary : {};
+      var sections = [
+        { title: 'Tensions', items: Array.isArray(summary.tensions) ? summary.tensions : [] },
+        { title: 'Objections', items: Array.isArray(summary.objections) ? summary.objections : [] },
+        { title: 'Insights', items: Array.isArray(summary.insights) ? summary.insights : [] }
+      ];
+      sections.forEach(function (s) {
+        if (!s.items.length) return;
+        var heading = document.createElement('div');
+        heading.className = 'summary-heading';
+        heading.textContent = s.title;
+        summaryEl.appendChild(heading);
+        var list = document.createElement('ul');
+        list.className = 'summary-list';
+        s.items.forEach(function (item) {
+          var li = document.createElement('li');
+          li.textContent = item;
+          list.appendChild(li);
+        });
+        summaryEl.appendChild(list);
+      });
+    }
+
+    function escapeHtml(text) {
+      if (text == null) return '';
+      var div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    var STORAGE_KEY = 'personaDebates';
+
+    function loadDebates() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw == null || raw === undefined) return [];
+        var parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('[loadDebates] Error reading localStorage', { key: STORAGE_KEY, message: e.message });
+        return [];
+      }
+    }
+
+    function saveDebate(productIdea, personas, debateData) {
+      try {
+        var debate = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          productIdea: productIdea,
+          personas: personas,
+          debateData: debateData
+        };
+        var list = loadDebates();
+        list.unshift(debate);
+        var max = (typeof CONFIG !== 'undefined' && CONFIG.MAX_SAVED_RUNS) ? CONFIG.MAX_SAVED_RUNS : 20;
+        if (list.length > max) list = list.slice(0, max);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        refreshHistory();
+      } catch (e) {
+        console.error('[saveDebate] Error saving to localStorage', { message: e.message });
+      }
+    }
+
+    function refreshHistory() {
+      var container = document.getElementById('historyList');
+      if (!container) return;
+      container.innerHTML = '';
+      var debates = loadDebates();
+      if (debates.length === 0) {
+        var placeholder = document.createElement('div');
+        placeholder.className = 'history-placeholder';
+        placeholder.textContent = 'No saved debates yet.';
+        container.appendChild(placeholder);
+        return;
+      }
+      debates.forEach(function (debate, index) {
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'history-item' + (index === 0 ? ' history-item-new' : '');
+        var title = (debate.productIdea || '').slice(0, 50);
+        if ((debate.productIdea || '').length > 50) title += '…';
+        var dateStr = '';
+        if (debate.timestamp) {
+          try {
+            var d = new Date(debate.timestamp);
+            dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } catch (e) {
+            dateStr = debate.timestamp;
+          }
+        }
+        item.innerHTML = '<span class="history-item-title">' + escapeHtml(title) + '</span><span class="history-item-date">' + escapeHtml(dateStr) + '</span>';
+        item.addEventListener('click', function () { loadSavedDebate(debate); });
+        container.appendChild(item);
+      });
+    }
+
+    function loadSavedDebate(debate) {
+      var productIdeaEl = document.getElementById('productIdea');
+      if (productIdeaEl) productIdeaEl.value = debate.productIdea || '';
+      var personas = debate.personas || [];
+      var nameInputs = document.querySelectorAll('.persona-name');
+      var perspectiveInputs = document.querySelectorAll('.persona-perspective');
+      for (var i = 0; i < 5; i++) {
+        if (nameInputs[i]) nameInputs[i].value = (personas[i] && personas[i].name != null) ? personas[i].name : '';
+        if (perspectiveInputs[i]) perspectiveInputs[i].value = (personas[i] && personas[i].perspective != null) ? personas[i].perspective : '';
+      }
+      var names = personas.map(function (p) { return (p && p.name != null) ? String(p.name) : ''; });
+      while (names.length < 5) names.push('');
+      displayDebate(debate.debateData || { messages: [], summary: {} }, names);
+      updateStatus('Loaded saved debate', 'success');
+    }
+
+    async function generateDebate() {
+      var form = getFormData();
+      var productIdea = form.productIdea;
+      var names = form.names;
+      var perspectives = form.perspectives;
+
+      if (!productIdea) {
+        updateStatus('Please enter a product idea.', 'error');
+        return;
+      }
+      var missingName = names.findIndex(function (n) { return !n; });
+      if (missingName !== -1) {
+        updateStatus('Please fill in all persona names (persona ' + (missingName + 1) + ' is empty).', 'error');
+        return;
+      }
+
+      setLoading(true);
+
+      var debatePrompt = buildDebatePrompt(productIdea, names, perspectives);
+      var requestBody = {
+        model: typeof CONFIG !== 'undefined' ? CONFIG.OPENAI_MODEL : 'gpt-4o-mini',
+        messages: [{ role: 'user', content: debatePrompt }]
+      };
+      var endpoint = typeof CONFIG !== 'undefined' ? CONFIG.OPENAI_ENDPOINT : 'https://api.openai.com/v1/chat/completions';
+      var apiKey = typeof CONFIG_KEYS !== 'undefined' ? CONFIG_KEYS.OPENAI_API_KEY : '';
+
+      console.log('[generateDebate] Before fetch', { endpoint: endpoint, model: requestBody.model, inputLength: debatePrompt.length });
+
+      try {
+        var response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        console.log('[generateDebate] After response', { ok: response.ok, status: response.status, statusText: response.statusText });
+
+        if (!response.ok) {
+          var errorBody = await response.text();
+          console.error('[generateDebate] HTTP error', { status: response.status, statusText: response.statusText, body: errorBody });
+          try {
+            var errJson = JSON.parse(errorBody);
+            var errMsg = (errJson.error && errJson.error.message) ? errJson.error.message : errorBody.slice(0, 200);
+            updateStatus(errMsg, 'error');
+          } catch (e) {
+            updateStatus('Error ' + response.status + ': ' + response.statusText, 'error');
+          }
+          return;
+        }
+
+        var body = await response.json();
+        console.log('[generateDebate] After parsing body', { hasMessages: !!(body.messages), hasSummary: !!(body.summary), keys: Object.keys(body) });
+
+        var data = extractDebateData(body);
+        if (!data || (!Array.isArray(data.messages) && !(data.summary && typeof data.summary === 'object'))) {
+          console.error('[generateDebate] Invalid debate shape', data);
+          updateStatus('Invalid response format from API - check console.', 'error');
+          return;
+        }
+        if (!Array.isArray(data.messages)) data.messages = [];
+        if (!data.summary || typeof data.summary !== 'object') data.summary = {};
+        displayDebate(data, names);
+        updateStatus('Debate generated!', 'success');
+        var personas = names.map(function (n, i) { return { name: n, perspective: perspectives[i] || '' }; });
+        saveDebate(productIdea, personas, data);
+      } catch (err) {
+        console.error('[generateDebate] Network/parse error', {
+          message: err.message,
+          stack: err.stack,
+          endpoint: endpoint,
+          model: requestBody.model
+        });
+        var statusMsg = 'Network error - check console';
+        if (err.message && (err.message.indexOf('JSON') !== -1 || err.message.indexOf('parse') !== -1)) {
+          statusMsg = 'Could not parse API response. Try again.';
+        } else if (err.message === 'Failed to fetch') {
+          statusMsg = 'Network failed. Use a local server (npx serve .) if opening from file.';
+        }
+        updateStatus(statusMsg, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', function () {
+      generateDebate();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
+          e.preventDefault();
+          generateDebate();
+        }
+      }
+    });
+
+    function updateProductIdeaCharCount() {
+      var el = document.getElementById('productIdea');
+      var countEl = document.getElementById('productIdeaCharCount');
+      if (!el || !countEl) return;
+      var n = (el.value || '').length;
+      countEl.textContent = n === 1 ? '1 character' : n + ' characters';
+    }
+
+    function autoResizeProductIdea() {
+      var el = document.getElementById('productIdea');
+      if (!el) return;
+      el.style.height = 'auto';
+      var max = 280;
+      el.style.height = Math.min(el.scrollHeight, max) + 'px';
+    }
+
+    var productIdeaEl = document.getElementById('productIdea');
+    if (productIdeaEl) {
+      productIdeaEl.addEventListener('input', function () {
+        updateProductIdeaCharCount();
+        autoResizeProductIdea();
+      });
+      productIdeaEl.addEventListener('focus', autoResizeProductIdea);
+      updateProductIdeaCharCount();
+    }
+
+    function toggleHistory() {
+      document.getElementById('history').classList.toggle('collapsed');
+    }
+    document.getElementById('historyToggle').addEventListener('click', toggleHistory);
+    document.getElementById('historyExpandTab').addEventListener('click', toggleHistory);
+
+    document.getElementById('clearHistoryBtn').addEventListener('click', function () {
+      if (!confirm('Clear all saved debates?')) return;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        refreshHistory();
+        updateStatus('History cleared', 'success');
+      } catch (e) {
+        console.error('[clearHistory] Error', { message: e.message });
+        updateStatus('Failed to clear history', 'error');
+      }
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', refreshHistory);
+    } else {
+      refreshHistory();
+    }
+
+    if (window.location.protocol === 'file:') {
+      updateStatus('Open this page via a local server (e.g. npx serve .) to avoid CORS errors.', 'error');
+    } else {
+      updateStatus('Ready', 'ready');
+    }
+  </script>
+</body>
+</html>
