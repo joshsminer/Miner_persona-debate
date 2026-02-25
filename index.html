@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Persona Debate</title>
   <script src="config.js"></script>
-  <script src="config-keys.js"></script>
   <style>
     :root {
       --primary: #6366f1;
@@ -1112,18 +1111,14 @@
         model: typeof CONFIG !== 'undefined' ? CONFIG.OPENAI_MODEL : 'gpt-4o-mini',
         messages: [{ role: 'user', content: debatePrompt }]
       };
-      var endpoint = typeof CONFIG !== 'undefined' ? CONFIG.OPENAI_ENDPOINT : 'https://api.openai.com/v1/chat/completions';
-      var apiKey = typeof CONFIG_KEYS !== 'undefined' ? CONFIG_KEYS.OPENAI_API_KEY : '';
+      var endpoint = '/api/chat';
 
       console.log('[generateDebate] Before fetch', { endpoint: endpoint, model: requestBody.model, inputLength: debatePrompt.length });
 
       try {
         var response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody)
         });
 
@@ -1133,11 +1128,14 @@
           var errorBody = await response.text();
           console.error('[generateDebate] HTTP error', { status: response.status, statusText: response.statusText, body: errorBody, timestamp: new Date().toISOString() });
           if (response.status === 401) {
-            showError('Invalid API key - check your config-keys.js file', errorBody);
+            showError('Invalid API key - check server .env (OPENAI_API_KEY)', errorBody);
           } else if (response.status === 429) {
             showError('Rate limited - wait a minute and try again', errorBody);
           } else if (response.status >= 500) {
-            showError('OpenAI service error - try again in a few minutes', errorBody);
+            var msg = (errorBody && errorBody.indexOf('OPENAI_API_KEY') !== -1)
+              ? 'Server not configured. Set OPENAI_API_KEY in .env and restart (npm start).'
+              : 'OpenAI service error - try again in a few minutes';
+            showError(msg, errorBody);
           } else {
             try {
               var errJson = JSON.parse(errorBody);
@@ -1181,6 +1179,10 @@
         saveDebate(productIdea, personas, validated.data);
       } catch (err) {
         console.error('[generateDebate] Network/parse error', { message: err.message, stack: err.stack, endpoint: endpoint, model: requestBody.model, timestamp: new Date().toISOString() });
+        if (err.message === 'Failed to fetch' && window.location.protocol === 'file:') {
+          showError('Run the app with "npm start" and open http://localhost:3000 so the API key stays secure.');
+          return;
+        }
         if (err.message && (err.message.indexOf('JSON') !== -1 || err.message.indexOf('parse') !== -1)) {
           showError('Unexpected response format', err.message);
         } else if (err.message === 'Failed to fetch') {

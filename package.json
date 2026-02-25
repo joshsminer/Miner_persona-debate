@@ -1,0 +1,13 @@
+{
+  "name": "persona-debate",
+  "version": "1.0.0",
+  "description": "Stress-test your product ideas with AI persona debates",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  }
+}
