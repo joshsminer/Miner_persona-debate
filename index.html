@@ -209,10 +209,14 @@
       box-shadow: 0 1px 3px rgba(99, 102, 241, 0.12);
     }
 
+    .history-item-new {
+      padding-right: 2.5rem;
+    }
+
     .history-item-new::after {
       content: 'New';
       position: absolute;
-      top: 0.35rem;
+      top: 0.5rem;
       right: 0.5rem;
       font-size: 0.65rem;
       font-weight: 600;
@@ -224,6 +228,7 @@
     }
 
     .history-item-title {
+      display: block;
       font-weight: 500;
       margin-bottom: 0.25rem;
       overflow: hidden;
@@ -232,6 +237,7 @@
     }
 
     .history-item-date {
+      display: block;
       font-size: 0.75rem;
       color: var(--text-muted);
     }
@@ -757,6 +763,7 @@
                 <span class="status-spinner" id="statusSpinner" aria-hidden="true"></span>
                 <div class="status-actions">
                   <span id="status">Ready</span>
+                  <button type="button" id="statusDetailsToggle" class="status-details-toggle" style="display:none">Show details</button>
                   <button type="button" id="retryBtn" class="retry-btn" title="Try again">Retry</button>
                 </div>
               </div>
@@ -795,6 +802,42 @@
       if (!el) return;
       el.textContent = message;
       el.className = type || 'ready';
+      if (type !== 'error') {
+        hideErrorDetails();
+        showRetryButton(false);
+      }
+    }
+
+    function showError(message, details) {
+      updateStatus(message, 'error');
+      showRetryButton(true);
+      var detEl = document.getElementById('statusDetails');
+      var toggleEl = document.getElementById('statusDetailsToggle');
+      if (details !== undefined && details !== null && details !== '') {
+        var detailStr = typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+        if (detailStr.length > 8000) detailStr = detailStr.slice(0, 8000) + '\n… (truncated)';
+        if (detEl) { detEl.textContent = detailStr; detEl.classList.remove('visible'); }
+        if (toggleEl) {
+          toggleEl.style.display = 'inline';
+          toggleEl.textContent = 'Show details';
+        }
+      } else {
+        hideErrorDetails();
+      }
+      console.error('[showError]', new Date().toISOString(), message, details !== undefined ? { details: details } : {});
+    }
+
+    function hideErrorDetails() {
+      var detEl = document.getElementById('statusDetails');
+      var toggleEl = document.getElementById('statusDetailsToggle');
+      if (detEl) { detEl.textContent = ''; detEl.classList.remove('visible'); }
+      if (toggleEl) toggleEl.style.display = 'none';
+    }
+
+    function showRetryButton(visible) {
+      var btn = document.getElementById('retryBtn');
+      if (!btn) return;
+      if (visible) btn.classList.add('visible'); else btn.classList.remove('visible');
     }
 
     function setLoading(isLoading) {
@@ -809,16 +852,31 @@
       if (btnText) btnText.textContent = isLoading ? 'Generating...' : 'Generate Debate';
       var inputs = document.querySelectorAll('#productIdea, .persona-name, .persona-perspective');
       inputs.forEach(function (el) { el.disabled = isLoading; });
-      if (isLoading) updateStatus('Generating debate...', 'loading');
+      if (isLoading) {
+        showRetryButton(false);
+        hideErrorDetails();
+        updateStatus('Generating debate...', 'loading');
+      }
+    }
+
+    var PRODUCT_IDEA_MAX_LENGTH = 5000;
+
+    function sanitizeForPrompt(str) {
+      if (str == null) return '';
+      var s = String(str).trim();
+      s = s.replace(/\u0000/g, '');
+      return s;
     }
 
     function getFormData() {
-      var productIdea = document.getElementById('productIdea').value.trim();
+      var rawIdea = document.getElementById('productIdea').value;
+      var productIdea = sanitizeForPrompt(rawIdea);
+      if (productIdea.length > PRODUCT_IDEA_MAX_LENGTH) productIdea = productIdea.slice(0, PRODUCT_IDEA_MAX_LENGTH);
       var nameInputs = document.querySelectorAll('.persona-name');
       var perspectiveInputs = document.querySelectorAll('.persona-perspective');
-      var names = Array.prototype.map.call(nameInputs, function (el) { return el.value.trim(); });
-      var perspectives = Array.prototype.map.call(perspectiveInputs, function (el) { return el.value.trim(); });
-      return { productIdea: productIdea, names: names, perspectives: perspectives };
+      var names = Array.prototype.map.call(nameInputs, function (el) { return sanitizeForPrompt(el.value); });
+      var perspectives = Array.prototype.map.call(perspectiveInputs, function (el) { return sanitizeForPrompt(el.value); });
+      return { productIdea: productIdea, names: names, perspectives: perspectives, wasTruncated: (rawIdea || '').trim().length > PRODUCT_IDEA_MAX_LENGTH };
     }
 
     function buildDebatePrompt(productIdea, names, perspectives) {
@@ -938,7 +996,7 @@
         var parsed = JSON.parse(raw);
         return Array.isArray(parsed) ? parsed : [];
       } catch (e) {
-        console.error('[loadDebates] Error reading localStorage', { key: STORAGE_KEY, message: e.message });
+        console.error('[loadDebates] Error reading localStorage – starting fresh', { key: STORAGE_KEY, message: e.message, timestamp: new Date().toISOString() });
         return [];
       }
     }
@@ -959,7 +1017,9 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
         refreshHistory();
       } catch (e) {
-        console.error('[saveDebate] Error saving to localStorage', { message: e.message });
+        console.error('[saveDebate] Error saving to localStorage', { message: e.message, timestamp: new Date().toISOString() });
+        updateStatus('Could not save to history', 'error');
+        setTimeout(function () { updateStatus('Debate generated!', 'success'); }, 3000);
       }
     }
 
@@ -1012,19 +1072,36 @@
       updateStatus('Loaded saved debate', 'success');
     }
 
+    function validateAndNormalizeDebateData(data, rawBody) {
+      var hasMessages = data && Array.isArray(data.messages);
+      var hasSummary = data && data.summary && typeof data.summary === 'object';
+      if (hasMessages && hasSummary) return { data: data, partial: false };
+      var partial = { messages: [], summary: { tensions: [], objections: [], insights: [] } };
+      if (data) {
+        if (Array.isArray(data.messages)) partial.messages = data.messages;
+        if (data.summary && typeof data.summary === 'object') {
+          partial.summary.tensions = Array.isArray(data.summary.tensions) ? data.summary.tensions : [];
+          partial.summary.objections = Array.isArray(data.summary.objections) ? data.summary.objections : [];
+          partial.summary.insights = Array.isArray(data.summary.insights) ? data.summary.insights : [];
+        }
+      }
+      return { data: partial, partial: !hasMessages || !hasSummary };
+    }
+
     async function generateDebate() {
       var form = getFormData();
       var productIdea = form.productIdea;
       var names = form.names;
       var perspectives = form.perspectives;
+      var wasTruncated = form.wasTruncated;
 
       if (!productIdea) {
-        updateStatus('Please enter a product idea.', 'error');
+        showError('Please enter a product idea.');
         return;
       }
       var missingName = names.findIndex(function (n) { return !n; });
       if (missingName !== -1) {
-        updateStatus('Please fill in all persona names (persona ' + (missingName + 1) + ' is empty).', 'error');
+        showError('Please fill in all persona names (persona ' + (missingName + 1) + ' is empty).');
         return;
       }
 
@@ -1054,46 +1131,63 @@
 
         if (!response.ok) {
           var errorBody = await response.text();
-          console.error('[generateDebate] HTTP error', { status: response.status, statusText: response.statusText, body: errorBody });
-          try {
-            var errJson = JSON.parse(errorBody);
-            var errMsg = (errJson.error && errJson.error.message) ? errJson.error.message : errorBody.slice(0, 200);
-            updateStatus(errMsg, 'error');
-          } catch (e) {
-            updateStatus('Error ' + response.status + ': ' + response.statusText, 'error');
+          console.error('[generateDebate] HTTP error', { status: response.status, statusText: response.statusText, body: errorBody, timestamp: new Date().toISOString() });
+          if (response.status === 401) {
+            showError('Invalid API key - check your config-keys.js file', errorBody);
+          } else if (response.status === 429) {
+            showError('Rate limited - wait a minute and try again', errorBody);
+          } else if (response.status >= 500) {
+            showError('OpenAI service error - try again in a few minutes', errorBody);
+          } else {
+            try {
+              var errJson = JSON.parse(errorBody);
+              var errMsg = (errJson.error && errJson.error.message) ? errJson.error.message : errorBody.slice(0, 500);
+              showError(errMsg, errorBody);
+            } catch (e) {
+              showError('Error ' + response.status + ': ' + response.statusText, errorBody);
+            }
           }
           return;
         }
 
-        var body = await response.json();
-        console.log('[generateDebate] After parsing body', { hasMessages: !!(body.messages), hasSummary: !!(body.summary), keys: Object.keys(body) });
-
-        var data = extractDebateData(body);
-        if (!data || (!Array.isArray(data.messages) && !(data.summary && typeof data.summary === 'object'))) {
-          console.error('[generateDebate] Invalid debate shape', data);
-          updateStatus('Invalid response format from API - check console.', 'error');
+        var bodyText = await response.text();
+        var body;
+        try {
+          body = JSON.parse(bodyText);
+        } catch (parseErr) {
+          console.error('[generateDebate] JSON parse error', { message: parseErr.message, timestamp: new Date().toISOString() });
+          showError('Unexpected response format', bodyText);
           return;
         }
-        if (!Array.isArray(data.messages)) data.messages = [];
-        if (!data.summary || typeof data.summary !== 'object') data.summary = {};
-        displayDebate(data, names);
-        updateStatus('Debate generated!', 'success');
-        var personas = names.map(function (n, i) { return { name: n, perspective: perspectives[i] || '' }; });
-        saveDebate(productIdea, personas, data);
-      } catch (err) {
-        console.error('[generateDebate] Network/parse error', {
-          message: err.message,
-          stack: err.stack,
-          endpoint: endpoint,
-          model: requestBody.model
-        });
-        var statusMsg = 'Network error - check console';
-        if (err.message && (err.message.indexOf('JSON') !== -1 || err.message.indexOf('parse') !== -1)) {
-          statusMsg = 'Could not parse API response. Try again.';
-        } else if (err.message === 'Failed to fetch') {
-          statusMsg = 'Network failed. Use a local server (npx serve .) if opening from file.';
+
+        console.log('[generateDebate] After parsing body', { hasMessages: !!(body && body.messages), hasSummary: !!(body && body.summary), keys: body ? Object.keys(body) : [] });
+
+        var extracted = extractDebateData(body);
+        var validated = validateAndNormalizeDebateData(extracted, bodyText);
+
+        if (!validated.data.messages.length && !validated.data.summary.tensions.length && !validated.data.summary.objections.length && !validated.data.summary.insights.length) {
+          showError('Could not parse debate from response', bodyText);
+          return;
         }
-        updateStatus(statusMsg, 'error');
+
+        displayDebate(validated.data, names);
+        if (validated.partial) {
+          updateStatus('Debate generated with partial data – some structure was missing.', 'error');
+          showRetryButton(true);
+        } else {
+          updateStatus((wasTruncated ? 'Product idea was truncated to ' + PRODUCT_IDEA_MAX_LENGTH + ' characters. ' : '') + 'Debate generated!', 'success');
+        }
+        var personas = names.map(function (n, i) { return { name: n, perspective: perspectives[i] || '' }; });
+        saveDebate(productIdea, personas, validated.data);
+      } catch (err) {
+        console.error('[generateDebate] Network/parse error', { message: err.message, stack: err.stack, endpoint: endpoint, model: requestBody.model, timestamp: new Date().toISOString() });
+        if (err.message && (err.message.indexOf('JSON') !== -1 || err.message.indexOf('parse') !== -1)) {
+          showError('Unexpected response format', err.message);
+        } else if (err.message === 'Failed to fetch') {
+          showError('Network error - check your internet connection');
+        } else {
+          showError('Network error - check your internet connection', err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -1101,6 +1195,18 @@
 
     document.getElementById('generateBtn').addEventListener('click', function () {
       generateDebate();
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', function () {
+      generateDebate();
+    });
+
+    document.getElementById('statusDetailsToggle').addEventListener('click', function () {
+      var detEl = document.getElementById('statusDetails');
+      var toggleEl = document.getElementById('statusDetailsToggle');
+      if (!detEl || !toggleEl) return;
+      var isVisible = detEl.classList.toggle('visible');
+      toggleEl.textContent = isVisible ? 'Hide details' : 'Show details';
     });
 
     document.addEventListener('keydown', function (e) {
@@ -1118,7 +1224,9 @@
       var countEl = document.getElementById('productIdeaCharCount');
       if (!el || !countEl) return;
       var n = (el.value || '').length;
-      countEl.textContent = n === 1 ? '1 character' : n + ' characters';
+      var overLimit = n > PRODUCT_IDEA_MAX_LENGTH;
+      countEl.classList.toggle('over-limit', overLimit);
+      countEl.textContent = (n === 1 ? '1 character' : n + ' characters') + (overLimit ? ' (max ' + PRODUCT_IDEA_MAX_LENGTH + ')' : '');
     }
 
     function autoResizeProductIdea() {
@@ -1153,7 +1261,18 @@
         updateStatus('History cleared', 'success');
       } catch (e) {
         console.error('[clearHistory] Error', { message: e.message });
-        updateStatus('Failed to clear history', 'error');
+        showError('Failed to clear history', e.message);
+      }
+    });
+
+    document.getElementById('resetAppBtn').addEventListener('click', function () {
+      if (!confirm('Reset app? This will clear all saved debates and reload the page.')) return;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      } catch (e) {
+        console.error('[resetApp] Error', { message: e.message });
+        showError('Failed to reset', e.message);
       }
     });
 
